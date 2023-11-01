@@ -13,43 +13,33 @@
         <t-col :span="10">
           <t-row :gutter="[16, 24]">
             <t-col :flex="1">
-              <t-form-item label="合同名称" name="name">
+              <t-form-item label="交易 ID" name="transactionID">
                 <t-input
-                  v-model="formData.name"
+                  v-model="formData.transactionID"
                   :style="{ minWidth: '134px' }"
                   class="form-item-content"
-                  placeholder="请输入合同名称"
+                  placeholder="请输入交易 ID"
                   type="search"
                 />
               </t-form-item>
             </t-col>
             <t-col :flex="1">
-              <t-form-item label="合同状态" name="status">
+              <t-form-item label="交易状态" name="status">
                 <t-select
                   v-model="formData.status"
                   :options="CONTRACT_STATUS_OPTIONS"
                   class="form-item-content`"
-                  placeholder="请选择合同状态"
+                  placeholder="请选择交易状态"
                 />
               </t-form-item>
             </t-col>
             <t-col :flex="1">
-              <t-form-item label="合同编号" name="no">
-                <t-input
-                  v-model="formData.no"
+              <t-form-item label="交易日期" name="transactionDate">
+                <t-date-picker
+                  v-model="formData.transactionDate"
                   :style="{ minWidth: '134px' }"
                   class="form-item-content"
-                  placeholder="请输入合同编号"
-                />
-              </t-form-item>
-            </t-col>
-            <t-col :flex="1">
-              <t-form-item label="合同类型" name="type">
-                <t-select
-                  v-model="formData.type"
-                  :options="CONTRACT_TYPE_OPTIONS"
-                  class="form-item-content`"
-                  placeholder="请选择合同类型"
+                  placeholder="请选择交易日期"
                 />
               </t-form-item>
             </t-col>
@@ -238,6 +228,20 @@ export default {
       .finally(() => {
         this.dataLoading = false;
       });
+
+    this.$request
+      .get('/api/transaction/list/page')
+      .then((res) => {
+        if (res.code === 0) {
+          console.log(res.data)
+          const {list = []} = res.data;
+          this.data = list;
+          this.pagination = {
+            ...this.pagination,
+            total: list.length,
+          };
+        }
+      })
   },
   methods: {
     getContainer() {
@@ -291,6 +295,10 @@ export default {
 
 .form-item-content {
   width: 100%;
+}
+
+.table-container {
+  margin-top: 16px;
 }
 
 .operation-container {
