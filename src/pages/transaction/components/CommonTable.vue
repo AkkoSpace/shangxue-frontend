@@ -13,10 +13,10 @@
         <t-col :span="10">
           <t-row :gutter="[16, 24]">
             <t-col :flex="1">
-              <t-form-item label="交易 ID" name="transactionID">
+              <t-form-item label="交易 ID" name="transactionId">
                 <t-input
-                  v-model="formData.transactionID"
-                  :style="{ minWidth: '134px' }"
+                  v-model="formData.transactionId"
+                  :style="{ minWidth: '130px' }"
                   class="form-item-content"
                   placeholder="请输入交易 ID"
                   type="search"
@@ -27,7 +27,7 @@
               <t-form-item label="交易状态" name="status">
                 <t-select
                   v-model="formData.status"
-                  :options="CONTRACT_STATUS_OPTIONS"
+                  :options="TRANSACTION_STATUS_OPTIONS"
                   class="form-item-content`"
                   placeholder="请选择交易状态"
                 />
@@ -37,7 +37,8 @@
               <t-form-item label="交易日期" name="transactionDate">
                 <t-date-picker
                   v-model="formData.transactionDate"
-                  :style="{ minWidth: '134px' }"
+                  :on-change="onDateChange"
+                  :style="{ minWidth: '130px', width: '100%' }"
                   class="form-item-content"
                   placeholder="请选择交易日期"
                 />
@@ -62,44 +63,100 @@
         :loading="dataLoading"
         :rowKey="rowKey"
         :verticalAlign="verticalAlign"
-        @change="rehandleChange"
-        @page-change="rehandlePageChange"
       >
+        <template #amount="{ row }">
+          <!--          展示两位小数，展示千分位-->
+          {{ row.amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}
+        </template>
         <template #status="{ row }">
-          <t-tag v-if="row.status === TRANSACTION_STATUS.FAIL" theme="danger" variant="light">审核失败</t-tag>
-          <t-tag v-if="row.status === TRANSACTION_STATUS.AUDIT_PENDING" theme="warning" variant="light">待审核</t-tag>
-          <t-tag v-if="row.status === TRANSACTION_STATUS.EXEC_PENDING" theme="warning" variant="light">待履行</t-tag>
-          <t-tag v-if="row.status === TRANSACTION_STATUS.EXECUTING" theme="success" variant="light">履行中</t-tag>
-          <t-tag v-if="row.status === TRANSACTION_STATUS.FINISH" theme="success" variant="light">已完成</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.UNPAID" theme="warning" variant="light">未付款</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.PAID" theme="success" variant="light">已付款</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.CANCELED" theme="danger" variant="light">已取消</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.REFUNDED" theme="danger" variant="light">已退款</t-tag>
         </template>
-        <template #contractType="{ row }">
-          <p v-if="row.contractType === CONTRACT_TYPES.MAIN">审核失败</p>
-          <p v-if="row.contractType === CONTRACT_TYPES.SUB">待审核</p>
-          <p v-if="row.contractType === CONTRACT_TYPES.SUPPLEMENT">待履行</p>
-        </template>
-        <template #paymentType="{ row }">
-          <p v-if="row.paymentType === CONTRACT_PAYMENT_TYPES.PAYMENT" class="payment-col">
-            付款
-            <trend class="dashboard-item-trend" type="up" />
-          </p>
-          <p v-if="row.paymentType === CONTRACT_PAYMENT_TYPES.RECIPT" class="payment-col">
-            收款
-            <trend class="dashboard-item-trend" type="down" />
-          </p>
+        <template #op-title>
+          <t-space>
+            <span>操作</span>
+            <t-button size="small" style="margin: -2px -5px 0 0" theme="primary" @click="handleClickAdd">新增</t-button>
+          </t-space>
         </template>
         <template #op="slotProps">
-          <a class="t-button-link" @click="rehandleClickOp(slotProps)">管理</a>
+          <a class="t-button-link" @click="handleClickOp(slotProps)">管理</a>
           <a class="t-button-link" @click="handleClickDelete(slotProps)">删除</a>
         </template>
       </t-table>
-      <t-pagination :current="pagination.current" :pageSize="pagination.pageSize" :total="pagination.total" />
+      <t-pagination
+        :current="pagination.current"
+        :pageSize="pagination.pageSize"
+        :total="pagination.total"
+        @change="handlePaginateChange"
+      />
     </div>
     <!--非基本页面-->
+    <!--新增-->
+    <t-dialog :visible.sync="modifyVisible" @cancel="onCancelModify" @confirm="onConfirmModify">
+      <div slot="header">
+        <AddIcon />
+        <span style="vertical-align: middle">新增交易订单</span>
+      </div>
+      <t-form ref="modifyForm" :data="modifyFormData" :label-width="80" :rules="modifyFormRules" :status-icon="true">
+        <t-form-item label="交易 ID" name="transactionId">
+          <t-input
+            v-model="modifyFormData.transactionId"
+            :style="{ minWidth: '130px' }"
+            class="form-item-content"
+            placeholder="请输入交易 ID"
+            type="search"
+          />
+        </t-form-item>
+        <t-form-item label="交易日期" name="transactionDate">
+          <t-date-picker
+            v-model="modifyFormData.transactionDate"
+            :on-change="onDateChange"
+            :style="{ minWidth: '130px', width: '100%' }"
+            class="form-item-content"
+            placeholder="请选择交易日期"
+          />
+        </t-form-item>
+        <t-form-item label="交易金额" name="amount">
+          <t-input
+            v-model="modifyFormData.amount"
+            :style="{ minWidth: '130px' }"
+            class="form-item-content"
+            placeholder="请输入交易金额"
+            suffix="元"
+            type="search"
+          />
+        </t-form-item>
+        <t-form-item label="交易状态" name="status">
+          <t-select
+            v-model="modifyFormData.status"
+            :options="TRANSACTION_STATUS_OPTIONS"
+            class="form-item-content"
+            placeholder="请选择交易状态"
+          />
+        </t-form-item>
+        <t-form-item label="备注" name="description">
+          <t-input
+            v-model="modifyFormData.description"
+            :style="{ minWidth: '130px' }"
+            class="form-item-content"
+            placeholder="请输入备注"
+            type="search"
+          />
+        </t-form-item>
+      </t-form>
+    </t-dialog>
+    <!--删除-->
     <t-dialog
       :body="confirmBody"
-      :onCancel="onCancel"
-      :visible.sync="confirmVisible"
-      header="确认删除当前所选合同？"
+      :confirmBtn="{
+        theme: 'danger',
+      }"
+      :visible.sync="deleteVisible"
+      header="确认删除当前所选交易订单？"
+      theme="warning"
+      @cancel="onCancel"
       @confirm="onConfirmDelete"
     >
     </t-dialog>
@@ -107,7 +164,6 @@
 </template>
 <script>
 import { prefix } from '@/config/global';
-import Trend from '@/components/trend/index.vue';
 
 import {
   CONTRACT_PAYMENT_TYPES,
@@ -115,13 +171,11 @@ import {
   CONTRACT_TYPE_OPTIONS,
   CONTRACT_TYPES,
   TRANSACTION_STATUS,
+  TRANSACTION_STATUS_OPTIONS,
 } from '@/constants';
 
 export default {
   name: 'transaction-table',
-  components: {
-    Trend,
-  },
   data() {
     return {
       TRANSACTION_STATUS,
@@ -131,9 +185,22 @@ export default {
       CONTRACT_PAYMENT_TYPES,
       prefix,
       formData: {
-        name: '',
-        no: undefined,
+        transactionId: undefined,
+        // transactionDate: undefined,
         status: undefined,
+      },
+      modifyFormData: {
+        transactionId: undefined,
+        transactionDate: undefined,
+        amount: undefined,
+        status: 0,
+        description: undefined,
+      },
+      modifyFormRules: {
+        transactionId: [{ required: true, message: '请输入交易 ID', trigger: 'blur' }],
+        transactionDate: [{ required: true, message: '请选择交易日期', trigger: 'blur' }],
+        amount: [{ required: true, message: '请输入交易金额', trigger: 'blur' }],
+        status: [{ required: true, message: '请选择交易状态', trigger: 'blur' }],
       },
       data: [],
       dataLoading: false,
@@ -141,31 +208,31 @@ export default {
       columns: [
         {
           title: '交易单号',
-          width: 200,
+          width: 150,
           align: 'left',
           ellipsis: true,
           colKey: 'transactionId',
         },
         {
           title: '交易日期',
-          width: 200,
+          width: 150,
           ellipsis: true,
           colKey: 'transactionDate',
         },
         {
           title: '交易金额 (元)',
-          width: 200,
+          width: 100,
+          align: 'right',
           ellipsis: true,
           colKey: 'amount',
         },
-        { title: '交易状态', colKey: 'status', width: 200, cell: { col: 'status' } },
-
+        { title: '交易状态', align: 'center', colKey: 'status', width: 100, cell: { col: 'status' } },
         {
-          align: 'left',
+          align: 'center',
           fixed: 'right',
-          width: 200,
+          width: 120,
           colKey: 'op',
-          title: '操作',
+          title: 'op-title',
         },
       ],
       rowKey: 'index',
@@ -180,11 +247,16 @@ export default {
         pageSize: 20,
         total: 0,
       },
-      confirmVisible: false,
+      modifyTitle: '新增订单',
+      modifyVisible: false,
+      deleteVisible: false,
       deleteIdx: -1,
     };
   },
   computed: {
+    TRANSACTION_STATUS_OPTIONS() {
+      return TRANSACTION_STATUS_OPTIONS;
+    },
     confirmBody() {
       if (this.deleteIdx > -1) {
         const { name } = this.data?.[this.deleteIdx];
@@ -197,59 +269,42 @@ export default {
     },
   },
   mounted() {
-    this.dataLoading = true;
-    this.$request
-      .get('/api/transaction/list/page', {
-        params: {
-          current: this.pagination.current,
-          pageSize: this.pagination.pageSize,
-        },
-      })
-      .then((res) => {
-        if (res.code === 0) {
-          const { data } = res;
-          this.data = data.records;
-          this.pagination = {
-            ...this.pagination,
-            total: data.total,
-          };
-        }
-      })
-      .catch((e) => {
-        console.log(e);
-      })
-      .finally(() => {
-        this.dataLoading = false;
-      });
+    this.getTransactionList();
   },
   methods: {
-    getContainer() {
-      return document.querySelector('.tdesign-starter-layout');
+    // ==== 页面事件 ====
+    // 查询交易
+    onSubmit() {
+      this.getTransactionList();
     },
-    onReset(data) {
-      console.log(data);
+    // 重置查询条件
+    onReset() {},
+    // 新增交易
+    handleClickAdd() {
+      this.modifyVisible = true;
     },
-    onSubmit(data) {
-      console.log(data);
+    onConfirmModify() {
+      this.$message.success('提交成功');
     },
-    rehandlePageChange(curr, pageInfo) {
+    onCancelModify() {
+      this.$refs.modifyForm.reset();
+    },
+    // 分页变化
+    handlePaginateChange(curr, pageInfo) {
       console.log('分页变化', curr, pageInfo);
     },
-    rehandleChange(changeParams, triggerAndData) {
-      console.log('统一Change', changeParams, triggerAndData);
-    },
-    rehandleClickOp({ text, row }) {
+    handleClickOp({ text, row }) {
       console.log(text, row);
     },
     handleClickDelete(row) {
       this.deleteIdx = row.rowIndex;
-      this.confirmVisible = true;
+      this.deleteVisible = true;
     },
     onConfirmDelete() {
       // 真实业务请发起请求
       this.data.splice(this.deleteIdx, 1);
       this.pagination.total = this.data.length;
-      this.confirmVisible = false;
+      this.deleteVisible = false;
       this.$message.success('删除成功');
       this.resetIdx();
     },
@@ -258,6 +313,44 @@ export default {
     },
     resetIdx() {
       this.deleteIdx = -1;
+    },
+
+    // ==== 请求后端接口 ====
+    // 获取交易列表
+    getTransactionList() {
+      this.dataLoading = true;
+      this.$request
+        .get('/api/transaction/list/page', {
+          params: {
+            current: this.pagination.current,
+            pageSize: this.pagination.pageSize,
+            ...this.formData,
+          },
+        })
+        .then((res) => {
+          if (res.code === 0) {
+            const { data } = res;
+            this.data = data.records;
+            this.pagination.total = Number(data.total);
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        })
+        .finally(() => {
+          this.dataLoading = false;
+        });
+    },
+
+    // ==== 工具方法 ====
+    // 格式化日期
+    onDateChange() {
+      console.log('onDateChange', this.formData.transactionDate);
+      this.formData.transactionDate = this.formData.transactionDate?.format('YYYY-MM-DD');
+    },
+    // 获取容器
+    getContainer() {
+      return document.querySelector('.tdesign-starter-layout');
     },
   },
 };
@@ -268,7 +361,7 @@ export default {
 
 .transaction-common-table {
   height: 100%;
-  padding: 30px 32px;
+  padding: 16px;
   background-color: var(--td-bg-color-container);
   border-radius: var(--td-radius-default);
 }
@@ -282,7 +375,7 @@ export default {
   margin-top: 16px;
 
   /deep/ .t-table {
-    height: calc(100% - 48px);
+    height: calc(100% - 60px);
   }
 }
 
