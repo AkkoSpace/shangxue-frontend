@@ -60,18 +60,17 @@
         :headerAffixedTop="true"
         :hover="hover"
         :loading="dataLoading"
-        :pagination="pagination"
         :rowKey="rowKey"
         :verticalAlign="verticalAlign"
         @change="rehandleChange"
         @page-change="rehandlePageChange"
       >
         <template #status="{ row }">
-          <t-tag v-if="row.status === CONTRACT_STATUS.FAIL" theme="danger" variant="light">审核失败</t-tag>
-          <t-tag v-if="row.status === CONTRACT_STATUS.AUDIT_PENDING" theme="warning" variant="light">待审核</t-tag>
-          <t-tag v-if="row.status === CONTRACT_STATUS.EXEC_PENDING" theme="warning" variant="light">待履行</t-tag>
-          <t-tag v-if="row.status === CONTRACT_STATUS.EXECUTING" theme="success" variant="light">履行中</t-tag>
-          <t-tag v-if="row.status === CONTRACT_STATUS.FINISH" theme="success" variant="light">已完成</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.FAIL" theme="danger" variant="light">审核失败</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.AUDIT_PENDING" theme="warning" variant="light">待审核</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.EXEC_PENDING" theme="warning" variant="light">待履行</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.EXECUTING" theme="success" variant="light">履行中</t-tag>
+          <t-tag v-if="row.status === TRANSACTION_STATUS.FINISH" theme="success" variant="light">已完成</t-tag>
         </template>
         <template #contractType="{ row }">
           <p v-if="row.contractType === CONTRACT_TYPES.MAIN">审核失败</p>
@@ -93,27 +92,29 @@
           <a class="t-button-link" @click="handleClickDelete(slotProps)">删除</a>
         </template>
       </t-table>
-      <t-dialog
-        :body="confirmBody"
-        :onCancel="onCancel"
-        :visible.sync="confirmVisible"
-        header="确认删除当前所选合同？"
-        @confirm="onConfirmDelete"
-      >
-      </t-dialog>
+      <t-pagination :current="pagination.current" :pageSize="pagination.pageSize" :total="pagination.total" />
     </div>
+    <!--非基本页面-->
+    <t-dialog
+      :body="confirmBody"
+      :onCancel="onCancel"
+      :visible.sync="confirmVisible"
+      header="确认删除当前所选合同？"
+      @confirm="onConfirmDelete"
+    >
+    </t-dialog>
   </div>
 </template>
 <script>
-import {prefix} from '@/config/global';
+import { prefix } from '@/config/global';
 import Trend from '@/components/trend/index.vue';
 
 import {
   CONTRACT_PAYMENT_TYPES,
-  CONTRACT_STATUS,
   CONTRACT_STATUS_OPTIONS,
   CONTRACT_TYPE_OPTIONS,
   CONTRACT_TYPES,
+  TRANSACTION_STATUS,
 } from '@/constants';
 
 export default {
@@ -123,7 +124,7 @@ export default {
   },
   data() {
     return {
-      CONTRACT_STATUS,
+      TRANSACTION_STATUS,
       CONTRACT_STATUS_OPTIONS,
       CONTRACT_TYPES,
       CONTRACT_TYPE_OPTIONS,
@@ -139,38 +140,26 @@ export default {
       value: 'first',
       columns: [
         {
-          title: '合同名称',
-          fixed: 'left',
+          title: '交易单号',
           width: 200,
           align: 'left',
           ellipsis: true,
-          colKey: 'name',
+          colKey: 'transactionId',
         },
-        {title: '合同状态', colKey: 'status', width: 200, cell: {col: 'status'}},
         {
-          title: '合同编号',
+          title: '交易日期',
           width: 200,
           ellipsis: true,
-          colKey: 'no',
+          colKey: 'transactionDate',
         },
         {
-          title: '合同类型',
-          width: 200,
-          ellipsis: true,
-          colKey: 'contractType',
-        },
-        {
-          title: '合同收付类型',
-          width: 200,
-          ellipsis: true,
-          colKey: 'paymentType',
-        },
-        {
-          title: '合同金额 (元)',
+          title: '交易金额 (元)',
           width: 200,
           ellipsis: true,
           colKey: 'amount',
         },
+        { title: '交易状态', colKey: 'status', width: 200, cell: { col: 'status' } },
+
         {
           align: 'left',
           fixed: 'right',
@@ -187,9 +176,9 @@ export default {
       rowClassName: (rowKey) => `${rowKey}-class`,
       // 与pagination对齐
       pagination: {
-        defaultPageSize: 20,
-        total: 100,
-        defaultCurrent: 1,
+        current: 1,
+        pageSize: 20,
+        total: 0,
       },
       confirmVisible: false,
       deleteIdx: -1,
@@ -198,7 +187,7 @@ export default {
   computed: {
     confirmBody() {
       if (this.deleteIdx > -1) {
-        const {name} = this.data?.[this.deleteIdx];
+        const { name } = this.data?.[this.deleteIdx];
         return `删除后，${name}的所有合同信息将被清空，且无法恢复`;
       }
       return '';
@@ -210,15 +199,19 @@ export default {
   mounted() {
     this.dataLoading = true;
     this.$request
-      .get('/api/get-list')
+      .get('/api/transaction/list/page', {
+        params: {
+          current: this.pagination.current,
+          pageSize: this.pagination.pageSize,
+        },
+      })
       .then((res) => {
         if (res.code === 0) {
-          console.log(res.data)
-          const {list = []} = res.data;
-          this.data = list;
+          const { data } = res;
+          this.data = data.records;
           this.pagination = {
             ...this.pagination,
-            total: list.length,
+            total: data.total,
           };
         }
       })
@@ -228,20 +221,6 @@ export default {
       .finally(() => {
         this.dataLoading = false;
       });
-
-    this.$request
-      .get('/api/transaction/list/page')
-      .then((res) => {
-        if (res.code === 0) {
-          console.log(res.data)
-          const {list = []} = res.data;
-          this.data = list;
-          this.pagination = {
-            ...this.pagination,
-            total: list.length,
-          };
-        }
-      })
   },
   methods: {
     getContainer() {
@@ -259,7 +238,7 @@ export default {
     rehandleChange(changeParams, triggerAndData) {
       console.log('统一Change', changeParams, triggerAndData);
     },
-    rehandleClickOp({text, row}) {
+    rehandleClickOp({ text, row }) {
       console.log(text, row);
     },
     handleClickDelete(row) {
@@ -288,8 +267,9 @@ export default {
 @import '@/style/variables.less';
 
 .transaction-common-table {
-  background-color: var(--td-bg-color-container);
+  height: 100%;
   padding: 30px 32px;
+  background-color: var(--td-bg-color-container);
   border-radius: var(--td-radius-default);
 }
 
@@ -298,7 +278,12 @@ export default {
 }
 
 .table-container {
+  height: 100%;
   margin-top: 16px;
+
+  /deep/ .t-table {
+    height: calc(100% - 48px);
+  }
 }
 
 .operation-container {
