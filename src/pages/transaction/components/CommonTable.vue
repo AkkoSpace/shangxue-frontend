@@ -64,6 +64,10 @@
         :rowKey="rowKey"
         :verticalAlign="verticalAlign"
       >
+        <!--        日期仅保留年月日-->
+        <template #transactionDate="{ row }">
+          {{ row.transactionDate.split('T')[0] }}
+        </template>
         <template #amount="{ row }">
           <!--          展示两位小数，展示千分位-->
           {{ row.amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}
@@ -94,16 +98,30 @@
     </div>
     <!--非基本页面-->
     <!--新增-->
-    <t-dialog :visible.sync="modifyVisible" @cancel="onCancelModify" @confirm="onConfirmModify">
+    <t-dialog
+      :closeBtn="false"
+      :closeOnEscKeydown="false"
+      :closeOnOverlayClick="false"
+      :visible.sync="saveVisible"
+      @cancel="onCancelSave"
+      @confirm="onConfirmSave"
+    >
       <div slot="header">
-        <AddIcon />
         <span style="vertical-align: middle">新增交易订单</span>
       </div>
-      <t-form ref="modifyForm" :data="modifyFormData" :label-width="80" :rules="modifyFormRules" :status-icon="true">
+      <t-form
+        ref="saveForm"
+        :data="saveFormData"
+        :label-width="80"
+        :rules="saveFormRules"
+        :status-icon="true"
+        label-align="right"
+        style="margin-left: 20px"
+      >
         <t-form-item label="交易 ID" name="transactionId">
           <t-input
-            v-model="modifyFormData.transactionId"
-            :style="{ minWidth: '130px' }"
+            v-model="saveFormData.transactionId"
+            :style="{ minWidth: '130px', width: '90%' }"
             class="form-item-content"
             placeholder="请输入交易 ID"
             type="search"
@@ -111,17 +129,16 @@
         </t-form-item>
         <t-form-item label="交易日期" name="transactionDate">
           <t-date-picker
-            v-model="modifyFormData.transactionDate"
-            :on-change="onDateChange"
-            :style="{ minWidth: '130px', width: '100%' }"
+            v-model="saveFormData.transactionDate"
+            :style="{ minWidth: '130px', width: '90%' }"
             class="form-item-content"
             placeholder="请选择交易日期"
           />
         </t-form-item>
         <t-form-item label="交易金额" name="amount">
           <t-input
-            v-model="modifyFormData.amount"
-            :style="{ minWidth: '130px' }"
+            v-model="saveFormData.amount"
+            :style="{ minWidth: '130px', width: '90%' }"
             class="form-item-content"
             placeholder="请输入交易金额"
             suffix="元"
@@ -130,16 +147,17 @@
         </t-form-item>
         <t-form-item label="交易状态" name="status">
           <t-select
-            v-model="modifyFormData.status"
+            v-model="saveFormData.status"
             :options="TRANSACTION_STATUS_OPTIONS"
+            :style="{ minWidth: '130px', width: '90%' }"
             class="form-item-content"
             placeholder="请选择交易状态"
           />
         </t-form-item>
         <t-form-item label="备注" name="description">
           <t-input
-            v-model="modifyFormData.description"
-            :style="{ minWidth: '130px' }"
+            v-model="saveFormData.description"
+            :style="{ minWidth: '130px', width: '90%' }"
             class="form-item-content"
             placeholder="请输入备注"
             type="search"
@@ -189,18 +207,18 @@ export default {
         // transactionDate: undefined,
         status: undefined,
       },
-      modifyFormData: {
-        transactionId: undefined,
+      saveFormData: {
+        transactionId: 'XD',
         transactionDate: undefined,
         amount: undefined,
         status: 0,
         description: undefined,
       },
-      modifyFormRules: {
+      saveFormRules: {
         transactionId: [{ required: true, message: '请输入交易 ID', trigger: 'blur' }],
         transactionDate: [{ required: true, message: '请选择交易日期', trigger: 'blur' }],
         amount: [{ required: true, message: '请输入交易金额', trigger: 'blur' }],
-        status: [{ required: true, message: '请选择交易状态', trigger: 'blur' }],
+        // status: [{ required: true, message: '请选择交易状态', trigger: 'blur' }],
       },
       data: [],
       dataLoading: false,
@@ -215,7 +233,7 @@ export default {
         },
         {
           title: '交易日期',
-          width: 150,
+          width: 120,
           ellipsis: true,
           colKey: 'transactionDate',
         },
@@ -247,8 +265,8 @@ export default {
         pageSize: 20,
         total: 0,
       },
-      modifyTitle: '新增订单',
-      modifyVisible: false,
+      saveTitle: '新增订单',
+      saveVisible: false,
       deleteVisible: false,
       deleteIdx: -1,
     };
@@ -281,13 +299,44 @@ export default {
     onReset() {},
     // 新增交易
     handleClickAdd() {
-      this.modifyVisible = true;
+      this.saveVisible = true;
     },
-    onConfirmModify() {
-      this.$message.success('提交成功');
+    onConfirmSave() {
+      // TODO 临时发起登录请求
+      // this.$request
+      //   .post('/api/user/login', {
+      //     userAccount: 'admin',
+      //     userPassword: 'Yan990817',
+      //   })
+      //   .then((res) => {
+      //     if (res.code === 0) {
+      //       this.$message.success('登录成功');
+      //     }
+      //   });
+
+      this.$request
+        .post('/api/transaction/add', this.saveFormData)
+        .then((res) => {
+          if (res.code === 0) {
+            this.$message.success('提交成功');
+            this.saveVisible = false;
+            this.$refs.saveForm.reset();
+            this.saveFormData = {
+              transactionId: 'XD',
+              transactionDate: undefined,
+              amount: undefined,
+              status: 0,
+              description: undefined,
+            };
+            this.getTransactionList();
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
     },
-    onCancelModify() {
-      this.$refs.modifyForm.reset();
+    onCancelSave() {
+      this.$refs.saveForm.reset();
     },
     // 分页变化
     handlePaginateChange(curr, pageInfo) {
@@ -346,7 +395,7 @@ export default {
     // 格式化日期
     onDateChange() {
       console.log('onDateChange', this.formData.transactionDate);
-      this.formData.transactionDate = this.formData.transactionDate?.format('YYYY-MM-DD');
+      this.formData.transactionDate = this.formData.transactionDate.format('YYYY-MM-DD');
     },
     // 获取容器
     getContainer() {
