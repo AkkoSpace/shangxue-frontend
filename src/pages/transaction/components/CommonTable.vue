@@ -37,7 +37,6 @@
               <t-form-item label="交易日期" name="transactionDate">
                 <t-date-picker
                   v-model="formData.transactionDate"
-                  :on-change="onDateChange"
                   :style="{ minWidth: '130px', width: '100%' }"
                   class="form-item-content"
                   placeholder="请选择交易日期"
@@ -64,12 +63,12 @@
         :rowKey="rowKey"
         :verticalAlign="verticalAlign"
       >
-        <!--        日期仅保留年月日-->
+        <!--日期仅保留年月日-->
         <template #transactionDate="{ row }">
           {{ row.transactionDate.split('T')[0] }}
         </template>
         <template #amount="{ row }">
-          <!--          展示两位小数，展示千分位-->
+          <!--展示两位小数，展示千分位-->
           {{ row.amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',') }}
         </template>
         <template #status="{ row }">
@@ -85,8 +84,34 @@
           </t-space>
         </template>
         <template #op="slotProps">
-          <a class="t-button-link" @click="handleClickOp(slotProps)">管理</a>
+          <a class="t-button-link" @click="handleClickUpdate(slotProps)">更新</a>
           <a class="t-button-link" @click="handleClickDelete(slotProps)">删除</a>
+        </template>
+        <template #footerSummary>
+          <div class="t-table__row-filter-inner">
+            <div>
+              <!--TODO 不存在未付款的交易，暂时不展示-->
+              <t-space>
+                <span>最早一笔未付款时间：</span>
+                <span>
+                  {{
+                    data
+                      .filter((item) => item.status === TRANSACTION_STATUS.UNPAID)
+                      .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))[0]
+                      .transactionDate.split('T')[0]
+                  }}
+                </span>
+                <span>总未付款金额：¥</span>
+                <span>{{
+                  data
+                    .filter((item) => item.status === TRANSACTION_STATUS.UNPAID)
+                    .reduce((prev, curr) => prev + curr.amount, 0)
+                    .toFixed(2)
+                    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+                }}</span>
+              </t-space>
+            </div>
+          </div>
         </template>
       </t-table>
       <t-pagination
@@ -102,13 +127,11 @@
       :closeBtn="false"
       :closeOnEscKeydown="false"
       :closeOnOverlayClick="false"
+      :header="saveTitle"
       :visible.sync="saveVisible"
       @cancel="onCancelSave"
       @confirm="onConfirmSave"
     >
-      <div slot="header">
-        <span style="vertical-align: middle">新增交易订单</span>
-      </div>
       <t-form
         ref="saveForm"
         :data="saveFormData"
@@ -204,7 +227,7 @@ export default {
       prefix,
       formData: {
         transactionId: undefined,
-        // transactionDate: undefined,
+        transactionDate: undefined,
         status: undefined,
       },
       saveFormData: {
@@ -221,6 +244,7 @@ export default {
         // status: [{ required: true, message: '请选择交易状态', trigger: 'blur' }],
       },
       data: [],
+      btnLoading: false,
       dataLoading: false,
       value: 'first',
       columns: [
@@ -265,10 +289,12 @@ export default {
         pageSize: 20,
         total: 0,
       },
-      saveTitle: '新增订单',
+      saveTitle: '新增交易订单',
+      saveType: 'add',
       saveVisible: false,
       deleteVisible: false,
       deleteIdx: -1,
+      deleteTransactionId: '',
     };
   },
   computed: {
@@ -277,8 +303,7 @@ export default {
     },
     confirmBody() {
       if (this.deleteIdx > -1) {
-        const { name } = this.data?.[this.deleteIdx];
-        return `删除后，${name}的所有合同信息将被清空，且无法恢复`;
+        return `删除后，${this.deleteTransactionId} 的所有订单信息将被清空，且无法恢复`;
       }
       return '';
     },
@@ -287,84 +312,102 @@ export default {
     },
   },
   mounted() {
+    this.tempLogin();
     this.getTransactionList();
   },
   methods: {
-    // ==== 页面事件 ====
+    /* ===================================== 页面事件 ===================================== */
+    /* ------------ 页面通用事件 ----------- */
+    // 分页变化
+    handlePaginateChange(pageInfo) {
+      this.pagination.current = pageInfo.current;
+      this.pagination.pageSize = pageInfo.pageSize;
+      this.getTransactionList();
+    },
+    /* ------------ 查询 ----------- */
     // 查询交易
     onSubmit() {
       this.getTransactionList();
     },
     // 重置查询条件
-    onReset() {},
-    // 新增交易
+    onReset() {
+      this.formData = {
+        transactionId: undefined,
+        transactionDate: undefined,
+        status: undefined,
+      };
+      this.getTransactionList();
+    },
+    /* ------------ 新增 ----------- */
+    // 新增交易订单
     handleClickAdd() {
+      this.saveTitle = '新增交易订单';
+      this.saveType = 'add';
       this.saveVisible = true;
     },
+    // 确认新增
     onConfirmSave() {
-      // TODO 临时发起登录请求
-      // this.$request
-      //   .post('/api/user/login', {
-      //     userAccount: 'admin',
-      //     userPassword: 'Yan990817',
-      //   })
-      //   .then((res) => {
-      //     if (res.code === 0) {
-      //       this.$message.success('登录成功');
-      //     }
-      //   });
-
-      this.$request
-        .post('/api/transaction/add', this.saveFormData)
-        .then((res) => {
-          if (res.code === 0) {
-            this.$message.success('提交成功');
-            this.saveVisible = false;
-            this.$refs.saveForm.reset();
-            this.saveFormData = {
-              transactionId: 'XD',
-              transactionDate: undefined,
-              amount: undefined,
-              status: 0,
-              description: undefined,
-            };
-            this.getTransactionList();
-          }
-        })
-        .catch((e) => {
-          console.log(e);
-        });
+      if (this.saveType === 'add') {
+        this.addTransactionOrder();
+      }
+      if (this.saveType === 'update') {
+        this.updateTransactionOrder();
+      }
     },
+    // 取消新增
     onCancelSave() {
       this.$refs.saveForm.reset();
+      this.initSaveFormData();
     },
-    // 分页变化
-    handlePaginateChange(curr, pageInfo) {
-      console.log('分页变化', curr, pageInfo);
+    /* ------------ 更新 ----------- */
+    // 更新交易订单
+    handleClickUpdate(row) {
+      this.saveTitle = '更新交易订单';
+      this.saveType = 'update';
+      this.saveFormData = {
+        id: row.row.id,
+        transactionId: row.row.transactionId,
+        transactionDate: row.row.transactionDate,
+        amount: row.row.amount,
+        status: row.row.status,
+        description: row.row.description,
+      };
+      this.saveVisible = true;
     },
-    handleClickOp({ text, row }) {
-      console.log(text, row);
-    },
+    /* ------------ 删除 ----------- */
+    // 删除交易订单
     handleClickDelete(row) {
-      this.deleteIdx = row.rowIndex;
+      this.deleteIdx = row.row.id;
+      this.deleteTransactionId = row.row.transactionId;
       this.deleteVisible = true;
     },
+    // 确认删除
     onConfirmDelete() {
-      // 真实业务请发起请求
-      this.data.splice(this.deleteIdx, 1);
-      this.pagination.total = this.data.length;
-      this.deleteVisible = false;
-      this.$message.success('删除成功');
-      this.resetIdx();
+      this.delTransactionOrder();
     },
+    // 取消删除
     onCancel() {
       this.resetIdx();
     },
+    // 重置删除索引
     resetIdx() {
       this.deleteIdx = -1;
     },
 
-    // ==== 请求后端接口 ====
+    /* ===================================== 请求后端 ===================================== */
+    // TODO 临时登录待移除
+    tempLogin() {
+      this.$request
+        .post('/api/user/login', {
+          userAccount: 'admin',
+          userPassword: 'Yan990817',
+        })
+        .then((res) => {
+          if (res.code === 0) {
+            this.$message.success('登录成功');
+          }
+        });
+    },
     // 获取交易列表
     getTransactionList() {
       this.dataLoading = true;
@@ -373,6 +416,8 @@ export default {
           params: {
             current: this.pagination.current,
             pageSize: this.pagination.pageSize,
+            sortOrder: 'descend',
+            sortField: 'transactionDate',
             ...this.formData,
           },
         })
@@ -390,12 +435,66 @@ export default {
           this.dataLoading = false;
         });
     },
-
-    // ==== 工具方法 ====
-    // 格式化日期
-    onDateChange() {
-      console.log('onDateChange', this.formData.transactionDate);
-      this.formData.transactionDate = this.formData.transactionDate.format('YYYY-MM-DD');
+    // 新增交易订单
+    addTransactionOrder() {
+      this.$request
+        .post('/api/transaction/add', this.saveFormData)
+        .then((res) => {
+          if (res.code === 0) {
+            this.$message.success('提交成功');
+            this.saveVisible = false;
+            this.$refs.saveForm.reset();
+            this.initSaveFormData();
+            this.getTransactionList();
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    },
+    // 更新交易订单
+    updateTransactionOrder() {
+      this.$request
+        .post('/api/transaction/update', this.saveFormData)
+        .then((res) => {
+          if (res.code === 0) {
+            this.$message.success('提交成功');
+            this.saveVisible = false;
+            this.$refs.saveForm.reset();
+            this.initSaveFormData();
+            this.getTransactionList();
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    },
+    // 删除交易订单
+    delTransactionOrder() {
+      this.$request
+        .post('/api/transaction/delete', { id: this.deleteIdx })
+        .then((res) => {
+          if (res.code === 0) {
+            this.$message.success('删除成功');
+            this.deleteVisible = false;
+            this.getTransactionList();
+            this.resetIdx();
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    },
+    /* =====================================   其他   ===================================== */
+    // 初始化表单内容: saveFormData
+    initSaveFormData() {
+      this.saveFormData = {
+        transactionId: 'XD',
+        transactionDate: undefined,
+        amount: undefined,
+        status: 0,
+        description: undefined,
+      };
     },
     // 获取容器
     getContainer() {
