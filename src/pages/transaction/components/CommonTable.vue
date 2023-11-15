@@ -28,7 +28,8 @@
                 <t-select
                   v-model="formData.status"
                   :options="TRANSACTION_STATUS_OPTIONS"
-                  class="form-item-content`"
+                  :style="{ minWidth: '130px' }"
+                  class="form-item-content"
                   placeholder="请选择交易状态"
                 />
               </t-form-item>
@@ -37,7 +38,7 @@
               <t-form-item label="交易日期" name="transactionDate">
                 <t-date-picker
                   v-model="formData.transactionDate"
-                  :style="{ minWidth: '130px', width: '100%' }"
+                  :style="{ minWidth: '130px' }"
                   class="form-item-content"
                   placeholder="请选择交易日期"
                 />
@@ -84,8 +85,17 @@
           </t-space>
         </template>
         <template #op="slotProps">
-          <a class="t-button-link" @click="handleClickUpdate(slotProps)">更新</a>
-          <a class="t-button-link" @click="handleClickDelete(slotProps)">删除</a>
+          <t-space>
+            <a class="t-button-link" @click="handleClickDetail(slotProps)">
+              <t-icon name="browse" />
+            </a>
+            <a class="t-button-link" @click="handleClickUpdate(slotProps)">
+              <t-icon name="edit-2" />
+            </a>
+            <a class="t-button-link" @click="handleClickDelete(slotProps)">
+              <t-icon name="delete-1" />
+            </a>
+          </t-space>
         </template>
         <template #footerSummary>
           <div class="t-table__row-filter-inner">
@@ -188,6 +198,76 @@
         </t-form-item>
       </t-form>
     </t-dialog>
+    <t-dialog
+      :cancelBtn="null"
+      :closeBtn="false"
+      :closeOnEscKeydown="false"
+      :closeOnOverlayClick="false"
+      :visible.sync="viewVisible"
+      header="查看交易订单"
+      @confirm="onConfirmView"
+    >
+      <t-space direction="vertical" style="width: 100%">
+        <t-divider align="center" dashed>订单信息</t-divider>
+        <t-row>
+          <t-col :span="4">
+            <span>交易 ID：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.transactionId }}</span>
+          </t-col>
+        </t-row>
+        <t-row>
+          <t-col :span="4">
+            <span>交易日期：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.transactionDate }}</span>
+          </t-col>
+        </t-row>
+        <t-row>
+          <t-col :span="4">
+            <span>交易金额：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.amount }} 元</span>
+          </t-col>
+        </t-row>
+        <t-row>
+          <t-col :span="4">
+            <span>交易状态：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.status }}</span>
+          </t-col>
+        </t-row>
+        <t-row>
+          <t-col :span="4">
+            <span>备注：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.description }}</span>
+          </t-col>
+        </t-row>
+        <t-divider align="center" dashed>其他信息</t-divider>
+        <t-row>
+          <t-col :span="4">
+            <span>创建时间：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.createTime }}</span>
+          </t-col>
+        </t-row>
+        <t-row>
+          <t-col :span="4">
+            <span>更新时间：</span>
+          </t-col>
+          <t-col :span="8">
+            <span>{{ detailData.updateTime }}</span>
+          </t-col>
+        </t-row>
+      </t-space>
+    </t-dialog>
     <!--删除-->
     <t-dialog
       :body="confirmBody"
@@ -244,6 +324,7 @@ export default {
         // status: [{ required: true, message: '请选择交易状态', trigger: 'blur' }],
       },
       data: [],
+      detailData: {},
       btnLoading: false,
       dataLoading: false,
       value: 'first',
@@ -292,6 +373,7 @@ export default {
       saveTitle: '新增交易订单',
       saveType: 'add',
       saveVisible: false,
+      viewVisible: false,
       deleteVisible: false,
       deleteIdx: -1,
       deleteTransactionId: '',
@@ -373,6 +455,16 @@ export default {
         description: row.row.description,
       };
       this.saveVisible = true;
+    },
+    /* ------------ 详情 ----------- */
+    // 查看交易订单详情
+    handleClickDetail(row) {
+      this.viewVisible = true;
+      this.getTransactionDetail(row.row.id);
+    },
+    // 确认查看
+    onConfirmView() {
+      this.viewVisible = false;
     },
     /* ------------ 删除 ----------- */
     // 删除交易订单
@@ -479,6 +571,23 @@ export default {
             this.deleteVisible = false;
             this.getTransactionList();
             this.resetIdx();
+          }
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    },
+    // 获取交易订单详情
+    getTransactionDetail(id) {
+      this.$request
+        .get('/api/transaction/get', {
+          params: {
+            id,
+          },
+        })
+        .then((res) => {
+          if (res.code === 0) {
+            this.detailData = res.data;
           }
         })
         .catch((e) => {
