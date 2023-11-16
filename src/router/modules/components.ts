@@ -3,6 +3,21 @@ import Layout from '@/layouts/index.vue';
 
 export default [
   {
+    path: '/transaction',
+    name: 'transaction',
+    component: Layout,
+    redirect: '/transaction/order',
+    meta: {title: '交易', icon: ViewModuleIcon},
+    children: [
+      {
+        path: 'order',
+        name: 'Order',
+        component: () => import('@/pages/transaction/order/index.vue'),
+        meta: {title: '订单管理'},
+      },
+    ],
+  },
+  {
     path: '/list',
     name: 'list',
     component: Layout,

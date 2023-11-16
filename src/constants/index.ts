@@ -19,6 +19,21 @@ export const CONTRACT_STATUS_OPTIONS: Array<IOption> = [
   { value: CONTRACT_STATUS.FINISH, label: '已完成' },
 ];
 
+// 交易状态枚举: 0-未付款，1-已付款，2-已取消，3-已退款
+export const TRANSACTION_STATUS = {
+  UNPAID: 0,
+  PAID: 1,
+  CANCELED: 2,
+  REFUNDED: 3,
+};
+
+export const TRANSACTION_STATUS_OPTIONS: Array<IOption> = [
+  { value: TRANSACTION_STATUS.UNPAID, label: '未付款' },
+  { value: TRANSACTION_STATUS.PAID, label: '已付款' },
+  { value: TRANSACTION_STATUS.CANCELED, label: '已取消' },
+  { value: TRANSACTION_STATUS.REFUNDED, label: '已退款' },
+];
+
 // 合同类型枚举
 export const CONTRACT_TYPES = {
   MAIN: 0,
