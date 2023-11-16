@@ -210,59 +210,63 @@
       <t-space direction="vertical" style="width: 100%">
         <t-divider align="center" dashed>订单信息</t-divider>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>交易 ID：</span>
           </t-col>
-          <t-col :span="8">
+          <t-col :span="9">
             <span>{{ detailData.transactionId }}</span>
           </t-col>
         </t-row>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>交易日期：</span>
           </t-col>
-          <t-col :span="8">
+          <t-col :span="9">
             <span>{{ detailData.transactionDate }}</span>
           </t-col>
         </t-row>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>交易金额：</span>
           </t-col>
-          <t-col :span="8">
+          <t-col :span="9">
             <span>{{ detailData.amount }} 元</span>
           </t-col>
         </t-row>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>交易状态：</span>
           </t-col>
-          <t-col :span="8">
-            <span>{{ detailData.status }}</span>
+          <t-col :span="9">
+            <span v-if="detailData.status === TRANSACTION_STATUS.UNPAID">未付款</span>
+            <span v-if="detailData.status === TRANSACTION_STATUS.PAID">已付款</span>
+            <span v-if="detailData.status === TRANSACTION_STATUS.CANCELED">已取消</span>
+            <span v-if="detailData.status === TRANSACTION_STATUS.REFUNDED">已退款</span>
           </t-col>
         </t-row>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>备注：</span>
           </t-col>
-          <t-col :span="8">
-            <span>{{ detailData.description }}</span>
+          <t-col :span="9">
+            <span v-if="detailData.description">{{ detailData.description }}</span>
+            <span v-else style="color: var(--td-text-color-placeholder)">暂无描述</span>
           </t-col>
         </t-row>
         <t-divider align="center" dashed>其他信息</t-divider>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>创建时间：</span>
           </t-col>
-          <t-col :span="8">
+          <t-col :span="9">
             <span>{{ detailData.createTime }}</span>
           </t-col>
         </t-row>
         <t-row>
-          <t-col :span="4">
+          <t-col :span="3">
             <span>更新时间：</span>
           </t-col>
-          <t-col :span="8">
+          <t-col :span="9">
             <span>{{ detailData.updateTime }}</span>
           </t-col>
         </t-row>

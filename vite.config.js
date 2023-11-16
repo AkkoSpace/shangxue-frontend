@@ -49,7 +49,8 @@ export default ({ mode }) => {
         '/api': {
           // 用于开发环境下的转发请求
           // 更多请参考：https://vitejs.dev/config/#server-proxy
-          target: 'http://47.103.139.143:26300',
+          // target: 'http://localhost:8101', // 本地环境
+          target: 'http://47.103.139.143:26300', // 线上环境
           changeOrigin: true,
         },
       },
